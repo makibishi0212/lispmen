@@ -10,9 +10,9 @@ import * as styles from './styles.css';
 
 const Core = ({ children }) =>
   <div>
-    <main className={styles.scopedClassName}>
+    <section className='section'>
       {children}
-    </main>
+    </section>
   </div>;
 
 export default Core;

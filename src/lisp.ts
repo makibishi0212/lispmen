@@ -5,11 +5,7 @@ type LispExpression = Array<LispAtom | LispPrimiteiveExpression>
 export class Lisp {
     private funcList:{[funcName: string]: Function} = {};
 
-    private source:Array<any> = null;
-
-    constructor(source:Array<any>) {
-        this.source = source;
-
+    constructor() {
         this.funcList["+"] = (...args) => {
             let sum = 0;
             args.forEach((num: number) => {
@@ -18,16 +14,72 @@ export class Lisp {
             return sum;
         }
 
-        console.log(this.funcList);
+        //console.log(this.funcList);
     }
 
-    public execute() {
-        let source:LispExpression = JSON.parse(JSON.stringify(this.source));
+    public parse(lispSourse:string):Array<LispExpression> {
+        const sourceString = lispSourse.slice(lispSourse.indexOf('(') + 1, lispSourse.lastIndexOf(')'));
 
-        console.log(this.eval(source));
+        const parseArray = [];
+
+        let tmpString:string = '';
+        let step:number = 0;
+        for(let i=0;i<sourceString.length;i++) {
+            switch (sourceString[i]) {
+                case '(':
+                    step++;
+                    tmpString += sourceString[i];
+                    break;
+                case ')':
+                    step--;
+                    tmpString += sourceString[i];
+                    break;
+                case ' ':
+                    if(step === 0) {
+                        if(tmpString[0] === '(') {
+                            parseArray.push(this.parse(tmpString));
+                        }else {
+                            parseArray.push(this.parseAtom(tmpString));
+                        }
+                        tmpString = '';
+                    }else {
+                        tmpString += sourceString[i];
+                    }
+                    break;
+                default:
+                    tmpString += sourceString[i];
+                    break;
+            }
+        }
+
+        if(tmpString[0] === '(') {
+            parseArray.push(this.parse(tmpString));
+        }else {
+            parseArray.push(this.parseAtom(tmpString));
+        }
+
+        //console.log(parseArray);
+
+        return parseArray;
     }
 
-    private eval(expression) {
+    private parseAtom(atomString: string) :string | number {
+        if(!Number.isNaN(Number(atomString))) {
+            return Number(atomString);
+        }else {
+            return atomString;
+        }
+    }
+
+    public execute(source:Array<LispExpression>) {
+        let exesource:LispExpression = JSON.parse(JSON.stringify(source));
+
+        const result = this.eval(exesource);
+        console.log(result);
+        return result;
+    }
+
+    private eval(expression):any {
         const func = expression.shift();
         const args:LispExpression = expression;
 

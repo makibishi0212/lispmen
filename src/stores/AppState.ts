@@ -4,17 +4,20 @@ import {Lisp} from '../lisp';
 const hasWindow = typeof window !== 'undefined';
 
 export interface AppStateProps {
-  timer: number;
+  message: string;
+  lispSource: string;
 }
 
 /*
 * This is the entry point for the app's state. All stores should go here.
 */
 class AppState implements AppStateProps {
-  @observable timer = 0;
-  @observable message = '';
+  @observable message = 'message';
+  @observable lispSource = '(+ (+ 1 2) 2 3)';
+  @observable lispresult = '';
 
   intervalId: any;
+  lisp: Lisp = new Lisp()
 
   constructor() {
     if (hasWindow) {
@@ -23,11 +26,15 @@ class AppState implements AppStateProps {
   }
 
   @action exeLisp = (source: Array<any>) => {
-    const lisp = new Lisp(source).execute();
+    this.lispresult = this.lisp.execute(this.lisp.parse(this.lispSource));
   }
 
   @action setMessage(message: string) {
     this.message = message;
+  }
+
+  @action updateProperty (key, value) {
+    this[key] = value
   }
 
   reload(store: AppStateProps) {
