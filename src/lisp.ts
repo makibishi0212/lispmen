@@ -14,6 +14,22 @@ export class Lisp {
             return sum;
         }
 
+        this.funcList["*"] = (...args) => {
+            let product = 1;
+            args.forEach((num: number) => {
+                product *= num;
+            })
+            return product;
+        }
+
+        this.funcList["-"] = (arg1, arg2) => {
+            return arg1 - arg2;
+        }
+
+        this.funcList["/"] = (arg1, arg2) => {
+            return arg1 / arg2;
+        }
+
         //console.log(this.funcList);
     }
 
@@ -52,13 +68,17 @@ export class Lisp {
             }
         }
 
+        if(step) {
+            return null;
+        }
+
         if(tmpString[0] === '(') {
             parseArray.push(this.parse(tmpString));
         }else {
             parseArray.push(this.parseAtom(tmpString));
         }
 
-        //console.log(parseArray);
+        console.log(parseArray);
 
         return parseArray;
     }
@@ -74,8 +94,11 @@ export class Lisp {
     public execute(source:Array<LispExpression>) {
         let exesource:LispExpression = JSON.parse(JSON.stringify(source));
 
+        if(!source) {
+            return 'Oh Parse Error';
+        }
+
         const result = this.eval(exesource);
-        console.log(result);
         return result;
     }
 
@@ -95,21 +118,48 @@ export class Lisp {
                 })
 
                 if(isPrimitive) {
-                    newargs.push(this.evalPrimitive(element))
+                    const result = this.evalPrimitive(element);
+                    if(result instanceof LispError) {
+                        return result;
+                    }else {
+                        newargs.push(result);
+                    }
                 }else {
-                    newargs.push(this.eval(element))
+                    const result = this.eval(element);
+                    if(result instanceof LispError) {
+                        return result;
+                    }else {
+                        newargs.push(result);
+                    }
                 }
             }else {
                 newargs.push(element);
             };
         });
 
-        return this.funcList[func](...newargs)
+        if(this.funcList[func]) {
+            return this.funcList[func](...newargs)
+        }else {
+            console.error('function ' + func + 'is undefined.');
+            return new LispError('function ' + func + ' is undefined.');
+        }
     }
 
     private evalPrimitive(expression) {
         const func = expression.shift();
         const args:LispExpression = expression;
-        return this.funcList[func](...args);
+        if(this.funcList[func]) {
+            return this.funcList[func](...args);
+        }else {
+            console.error('function ' + func + ' is undefined.');
+            return new LispError('function ' + func + ' is undefined.');
+        }
+    }
+}
+
+class LispError {
+    public message = '';
+    constructor(message: string) {
+        this.message = message;
     }
 }

@@ -13,7 +13,7 @@ class Home extends React.Component<{ appState: AppState }, any> {
   }
 
   exeLisp = () => {
-    this.props.appState.exeLisp(["+", ["+", 2,5,7], 2, 3, ["+", 2,5,4]]);
+    this.props.appState.exeLisp();
   }
 
   onChange (event) {

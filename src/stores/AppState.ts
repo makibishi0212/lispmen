@@ -25,7 +25,7 @@ class AppState implements AppStateProps {
     }
   }
 
-  @action exeLisp = (source: Array<any>) => {
+  @action exeLisp = () => {
     this.lispresult = this.lisp.execute(this.lisp.parse(this.lispSource));
   }
 
