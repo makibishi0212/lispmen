@@ -1,6 +1,6 @@
-type LispAtom = number | string
+type LispAtom = number | string | boolean
 type LispPrimiteiveExpression = Array<LispAtom>
-type LispExpression = Array<LispAtom | LispPrimiteiveExpression>
+type LispExpression = Array<LispAtom | LispPrimiteiveExpression | LispError>
 
 export class Lisp {
     private funcList:{[funcName: string]: Function} = {};
@@ -99,6 +99,9 @@ export class Lisp {
         }
 
         const result = this.eval(exesource);
+        if(result instanceof LispError) {
+            return result.message;
+        }
         return result;
     }
 
@@ -107,8 +110,9 @@ export class Lisp {
         const args:LispExpression = expression;
 
         const newargs: LispPrimiteiveExpression = [];
+        let error = null;
 
-        args.forEach((element) => {
+        const errorOccured = args.some((element) => {
             if(Array.isArray(element)){
                 let isPrimitive = true;
                 element.forEach((elementelement) => {
@@ -120,22 +124,30 @@ export class Lisp {
                 if(isPrimitive) {
                     const result = this.evalPrimitive(element);
                     if(result instanceof LispError) {
-                        return result;
+                        error = result;
+                        return true;
                     }else {
                         newargs.push(result);
                     }
                 }else {
                     const result = this.eval(element);
                     if(result instanceof LispError) {
-                        return result;
+                        error = result;
+                        return true;
                     }else {
                         newargs.push(result);
                     }
                 }
+            }else if(element instanceof LispError) {
+                return true
             }else {
                 newargs.push(element);
             };
         });
+
+        if(errorOccured) {
+            return error;
+        }
 
         if(this.funcList[func]) {
             return this.funcList[func](...newargs)
@@ -160,6 +172,6 @@ export class Lisp {
 class LispError {
     public message = '';
     constructor(message: string) {
-        this.message = message;
+        this.message = 'ERROR:' + message;
     }
 }
