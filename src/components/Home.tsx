@@ -25,7 +25,7 @@ class Home extends React.Component<{ appState: AppState }, any> {
       <div>
         <div className="container">
           <h1 className='title is-1'>
-            Lisp Playground
+            LISP Playground
           </h1>
           <div className="field">
             <div className="control">

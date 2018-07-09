@@ -13,7 +13,7 @@ export interface AppStateProps {
 */
 class AppState implements AppStateProps {
   @observable message = 'message';
-  @observable lispSource = '(+ (+ 1 2) 2 3)';
+  @observable lispSource = '(+ (setq a 4) (* 4 3 2) 2 a 3)';
   @observable lispresult = '';
 
   intervalId: any;
@@ -26,7 +26,7 @@ class AppState implements AppStateProps {
   }
 
   @action exeLisp = () => {
-    this.lispresult = this.lisp.execute(this.lisp.parse(this.lispSource));
+    this.lispresult = this.lisp.execute(this.lisp.parse(this.lispSource)) as string;
   }
 
   @action setMessage(message: string) {
