@@ -32,7 +32,7 @@ module.exports = (env) => {
     output: {
       filename: '[name].[hash].js',
       sourceMapFilename: '[name].[hash].map.js',
-      path: path.join(__dirname, '../build/'),
+      path: path.join(__dirname, '../docs/'),
       // publicPath: '/', can uncomment if you want everything relative to root '/'
     },
     optimization: {
