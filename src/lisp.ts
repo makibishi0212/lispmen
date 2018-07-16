@@ -1,45 +1,130 @@
-type LispAtom = number | string | boolean
-type LispElement = LispAtom | Array<any> | LispError | LispVar;
+import { hasOwnProperty } from 'mobx/lib/utils/utils';
+
+type LispAtom = number | string | Array<any> | Function
+
+interface LispElement {
+    type:string;
+    value:LispAtom;
+}
 
 export class Lisp {
-    private varList:{[varName: string]: LispElement | Function} = {};
-
-    constructor() {
-        this.varList["+"] = (...args: Array<LispVar>) => {
+    // 初期の定義済オブジェクト
+    private defined = {
+        'print': (x) => {
+            console.log(x);
+            return x;
+        },
+        'first': (x) => {
+            return x[0];
+        },
+        '+': (...args) => {
             let sum = 0;
-            args.forEach((lispvar: LispVar) => {
-                sum += lispvar.value;
-            })
+            args.forEach((num) => {
+                sum += num;
+            });
+            
             return sum;
-        }
-
-        this.varList["*"] = (...args: Array<LispVar>) => {
+        },
+        '-': (...args) => {
+            return args[0] - args[1];
+        },
+        '*': (...args) => {
             let product = 1;
-            args.forEach((lispvar: LispVar) => {
-                product *= lispvar.value;
+            args.forEach((num) => {
+                product *= num;
             })
+
             return product;
-        }
+        },
+        '/': (...args) => {
+            return args[0] / args[1];
+        },
+    };
 
-        this.varList["-"] = (arg1:LispVar, arg2:LispVar) => {
-            return arg1.value - arg2.value;
-        }
+    // 実行時に生じたカスタムオブジェクト
+    private custom = {};
 
-        this.varList["/"] = (arg1:LispVar, arg2:LispVar) => {
-            return arg1.value / arg2.value;
-        }
+    // 式に対して特殊な動作をする関数オブジェクト
+    private special = {
+        // 関数を定義する関数
+        'lambda': (source: LispElement | Array<any>, lispSpace?: LispSpace) => {
+            return (...args) => {
+                const lambdaScope = source[1].reduce((acc, x, i) => {
+                    acc[x.value] = args[i];
+                    return acc;
+                }, {});
 
-        this.varList["setq"] = (arg1: LispVar, arg2: LispVar) => {
-            this.varList[arg1.key] = arg2.value;
+                return this.interpret(source[2], new LispSpace(lambdaScope, lispSpace));
+            }
         }
     }
 
+    constructor() {
+
+    }
+
+    // LISPソースを実行する
+    public execute(lispSource: string) {
+        const source = this.parse(lispSource);
+
+        console.log(source);
+        if(source) {
+            return this.interpret(source);
+        }else {
+            return 'oh parse Error';
+        }
+    }
+
+    // LISP文字列をjsArrayに変換する
+    /*
+    public parse(lispSource: string):Array<any> {
+        // TODO: 改行の除去
+        const parseTarget = 
+        lispSource.replace(/\(/g, ' ( ')
+        .replace(/\)/g, ' ) ')
+        .trim()
+        .split(/\s+/);
+
+        // 正規表現で配列化したリストをネスト構造化にする
+        const nestize = (parseTarget: Array<string>, list:Array<any> = undefined) => {
+            if(typeof list === 'undefined') {
+                return nestize(parseTarget, []);
+            }else {
+                const token = parseTarget.shift();
+                if(typeof token === 'undefined') {
+                    return list.pop();
+                }else if(token === "(") {
+                    list.push(nestize(parseTarget, []));
+                    return nestize(parseTarget, list);
+                }else if(token === ")") {
+                    return list;
+                }else {
+                    let data:LispElement;
+                    if(!isNaN(parseFloat(token))) {
+                        // number
+                        data = { type:'literal', value: parseFloat(token) };
+                    }else if(token[0] === '"' && token.slice(-1) === '"') {
+                        // 文字列
+                        data = { type:'literal', value: token.slice(1, -1) };
+                    }else {
+                        // 関数またはシンボル
+                        data = { type:'identifier', value: token };
+                    }
+
+                    return nestize(parseTarget, list.concat(data));
+                }
+            }
+        }
+
+        return nestize(parseTarget);
+    }
+    */
+
+    // LISP文字列をjsArrayに変換する
     public parse(lispSourse:string):Array<LispElement> {
-        const sourceString = lispSourse.slice(lispSourse.indexOf('(') + 1, lispSourse.lastIndexOf(')'));
+        const sourceString = lispSourse.slice(lispSourse.indexOf('(') + 1, lispSourse.lastIndexOf(')')).replace(/\r?\n/g, '');
 
         const parseArray = [];
-
-        //(+ (setq a 100) (+ 1 2) 2 a 3)
 
         let tmpString:string = '';
         let step:number = 0;
@@ -84,150 +169,76 @@ export class Lisp {
         return parseArray;
     }
 
-    private parseAtom(atomString: string) :string | number {
-        if(!Number.isNaN(Number(atomString))) {
-            return Number(atomString);
+    private parseAtom(atomString: string) :LispElement {
+        if(!isNaN(parseFloat(atomString))) {
+            // number
+            return { type:'literal', value: parseFloat(atomString) };
+        }else if(atomString[0] === '"' && atomString.slice(-1) === '"') {
+            // 文字列
+            return { type:'literal', value: atomString.slice(1, -1) };
         }else {
-            return atomString;
+            // 関数またはシンボル
+            return { type:'identifier', value: atomString };
         }
     }
 
-    public execute(source:LispElement) {
-        let exesource:LispElement = JSON.parse(JSON.stringify(source));
-
-        if(!source) {
-            return 'Oh Parse Error';
-        }
-
-        const result = this.eval(exesource);
-        if(result instanceof LispError) {
-            return result.message;
-        }else if(result instanceof LispVar) {
-            return result.value;
+    // parse済のLISPソースを逐次実行する
+    private interpret(source: LispElement | Array<any>, lispSpace?: LispSpace): LispAtom {
+        if(typeof lispSpace === 'undefined') {
+            return this.interpret(source, new LispSpace(this.defined));
+        }else if(source instanceof Array) {
+            // 配列の場合逐次実行した結果を返す
+            return this.inrerpretList(source);
+        }else if(source.hasOwnProperty('type') && source.hasOwnProperty('value')) {
+            if(source.type === 'identifier') {
+                // identifierのときは常にvalueはstring
+                return lispSpace.get(source.value as string);
+            }else if (source.type = 'literal') {
+                // リテラルの場合単にその値を返す
+                return source.value
+            }
         }
     }
 
-    private eval(expression:LispElement):LispVar | LispError {
+    // 配列になっているLISPソースを解決する
+    private inrerpretList(source: Array<any>, lispSpace?: LispSpace) {
+        if(Array.isArray(source) && source[0].value in this.special) {
+            // 入力が配列で、最初の引数が特殊動作関数の場合
+            return this.special[source[0].value](source, lispSpace)
+        }else {
+            const list = source.map((element) => {
+                // 各要素を解釈して逐次実行する(再帰的に全ての要素を解決するので、このループを抜けた時には全てがLispAtom型になる)
+                return this.interpret(element);
+            });
 
-        if(this.isevaluable(expression)) {
-            // 評価可能な式のとき
-
-            const exesource:Array<LispElement> = JSON.parse(JSON.stringify(expression));
-            const func = exesource.shift() as string;
-            const args:Array<LispElement> = exesource;
-
-            // 評価済の状態にした関数にわたす引数
-            const newargs: Array<LispElement> = [];
-
-            // newargsを作成中に発生したエラーを格納する変数
-            let error = null;
-
-            const errorOccured = args.some((element) => {
-                if(Array.isArray(element) && this.isevaluable(element)){
-                    // 関数を評価
-                    const result = this.eval(element);
-                    if(result instanceof LispError) {
-                        error = result;
-                        return true;
-                    }else {
-                        // 値を返さない関数の場合式解決後に引数として登録しない
-                        if(typeof result.value !== 'undefined') {
-                            newargs.push(result);
-                        }
-                    }
-                }else if(element instanceof LispError) {
-                    error = element;
-                    return true
-                }else if(element instanceof LispVar) {
-                    // 引数オブジェクトのとき
-                    newargs.push(element);
-                }else {
-                    newargs.push(this.eval(element));
-                }
-            })
-
-            if(errorOccured) {
-                // 引数の評価時に発生したエラーを返す
-                return error;
-            }
-
-            if(typeof this.varList[func] === 'function') {
-                // 関数の実行結果を返す
-                console.log(newargs);
-                const evaled = new LispVar(undefined, (this.varList[func] as Function)(...newargs));
-                if(typeof evaled !== 'undefined') {
-                    return evaled;
-                }
-            }
-        }else if(this.isSymbol(expression) && typeof(expression) === 'string') {
-            // シンボルのとき
-
-            /*
-            if(this.varList[expression]) {
-                if(!(this.varList[expression] instanceof Function)) {
-                    return this.varList[expression] as LispElement;
-                }else {
-                    // TODO: 関数が格納されたシンボルをどのように扱うか検討する
-                }
+            if(list[0] instanceof Function) {
+                // １つ目の引数に入っている関数をひとつめ以降の要素を引数として実行した結果を返す
+                // interpretが完了するとidentifierとして定義されていたLisp関数がjsの関数の形で返るため、実行することができる
+                // (なぜlist[0](...list.slice(1))ではダメ？)
+                return (list[0] as Function).apply(undefined, list.slice(1));
             }else {
-                return new LispError('symbol ' + expression + ' is undefined.', expression);
-            }
-            */
-
-            return new LispVar(expression, this.varList[expression]);
-        }else if(expression instanceof LispError) {
-            // エラーのとき
-            return expression;
-        }else if(expression instanceof LispVar) {
-            // 引数オブジェクトのとき
-            return expression;
-        }else {
-            // リスト・数字・文字列・ブーリアン・nullのとき
-            return new LispVar(undefined, expression);
-        }
-    }
-
-    // 式が評価可能かどうか判定する
-    private isevaluable(expression:LispElement):boolean {
-        // 配列で、最初の要素がシンボルとして与えられた文字列で、そのシンボルが定義されておりかつ関数の場合
-        if(Array.isArray(expression) && typeof expression[0] === 'string') {
-            const symbolName = expression[0] as string;
-            if(this.isSymbol(symbolName) && typeof(this.varList[symbolName]) === 'function') {
-                return true;
+                return list;
             }
         }
+    }
+}
 
-        return false;
+class LispSpace {
+    private scope: Object = undefined;
+    private parent: LispSpace = null;
+
+    constructor(scope: Object, parent: LispSpace = null) {
+        this.scope = scope;
+        this.parent = parent;
     }
 
-    // 文字列がシンボルかどうか判定する
-    private isSymbol(expression:LispElement):boolean {
-        if(typeof(expression) === 'string' && expression.substr(0,2) !== '#\\') {
-            return true;
+    public get(identifier: string) {
+        if(identifier in this.scope) {
+            return this.scope[identifier];
+        }else if(this.parent !== null) {
+            return this.parent.get(identifier);
         }else {
-            return false;
+            return null;
         }
     }
 }
-
-class LispVar {
-    public key = '';
-    public value = undefined;
-    constructor(key: string, value: any) {
-        this.key = key;
-        this.value = value;
-    }
-}
-
-class LispError {
-    public message = '';
-    public errorSymbol = null;
-    constructor(message: string, errorSymbol: string) {
-        this.message = 'ERROR:' + message;
-        this.errorSymbol = errorSymbol;
-    }
-}
-
-//TODO: setqのエラーを利用した方法を廃止する。
-//TODO: 関数への変数情報渡しをLispVarを使って行うようにする。
-//TODO: LispVarから変数そのものの情報か実体かを取り出すユーティリティを作成し、各関数内で使うようにする。
