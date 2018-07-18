@@ -1,6 +1,6 @@
 import { hasOwnProperty } from 'mobx/lib/utils/utils';
 
-type LispAtom = number | string | Array<any> | Function
+type LispAtom = number | string | Array<any> | Function | boolean
 
 interface LispElement {
     type:string;
@@ -9,14 +9,44 @@ interface LispElement {
 
 export class Lisp {
     // 初期の定義済オブジェクト
-    private defined = {
-        'print': (x) => {
-            console.log(x);
-            return x;
+    private defined:{[symbolName: string]: LispAtom | Function} = {
+        // 純LISP関数
+        'atom': (...args) => {
+            // 全ての要素がatomならtrueを返す
+            return args.every((element) => {
+                if(typeof element === 'number' || typeof element === 'string') {
+                    return true;
+                }
+            });
         },
-        'first': (x) => {
-            return x[0];
+        'eq': (...args) => {
+            // 全ての要素が同一ならtrueを返す
         },
+        'car': (...args) => {
+            // リストの最初の要素を返す
+            if(Array.isArray(args[0])) {
+                // TODO: 空配列なら空配列を返す
+                return args[0][0];
+            }else {
+                return false;
+            }
+        },
+        'cdr': (...args) => {
+            // リストの最初の要素以降の要素を返す
+        },
+        'cons': (...args) => {
+            // 引数で与えられた要素を元に配列を生成し返す
+        },
+
+        // nil,Tの変換
+        'nil': () => {
+            return false;
+        },
+        'T': () => {
+            return true;
+        },
+
+        // 四則演算
         '+': (...args) => {
             let sum = 0;
             args.forEach((num) => {
@@ -39,10 +69,19 @@ export class Lisp {
         '/': (...args) => {
             return args[0] / args[1];
         },
+
+        // 便利関数
+        'print': (...args) => {
+            // コンソールに引数で与えられた値を表示する
+            args.forEach((element) => {
+                console.log(element);
+            })
+            return args[0];
+        },
     };
 
     // 実行時に生じたカスタムオブジェクト
-    private custom = {};
+    private customDefined = {};
 
     // 式に対して特殊な動作をする関数オブジェクト
     private special = {
@@ -57,10 +96,14 @@ export class Lisp {
                 return this.interpret(source[2], new LispSpace(lambdaScope, lispSpace));
             }
         }
+
+        // if, quote, define
     }
 
     constructor() {
-
+        // エイリアスを定義
+        this.defined['first'] = this.defined.car;
+        this.defined['rest'] = this.defined.cdr;
     }
 
     // LISPソースを実行する
@@ -142,6 +185,8 @@ export class Lisp {
                     if(step === 0) {
                         if(tmpString[0] === '(') {
                             parseArray.push(this.parse(tmpString));
+                        }else if(tmpString === '') {
+                            // tmpが空の場合は空文字をスキップ
                         }else {
                             parseArray.push(this.parseAtom(tmpString));
                         }

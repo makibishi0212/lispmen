@@ -33,7 +33,7 @@ module.exports = (env) => {
       filename: '[name].[hash].js',
       sourceMapFilename: '[name].[hash].map.js',
       path: path.join(__dirname, '../docs/'),
-      publicPath: '/lispmen/', //can uncomment if you want everything relative to root '/'
+      publicPath: env.prod ? '/lispmen/' : '/', //can uncomment if you want everything relative to root '/'
     },
     optimization: {
       minimize: env.prod,

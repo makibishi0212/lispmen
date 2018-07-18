@@ -113,7 +113,7 @@ return /******/ (function(modules) { // webpackBootstrap
 /******/ 	__webpack_require__.o = function(object, property) { return Object.prototype.hasOwnProperty.call(object, property); };
 /******/
 /******/ 	// __webpack_public_path__
-/******/ 	__webpack_require__.p = "/lispmen/";
+/******/ 	__webpack_require__.p = "/";
 /******/
 /******/ 	// uncaught error handler for webpack runtime
 /******/ 	__webpack_require__.oe = function(err) {
@@ -29368,13 +29368,42 @@ class Lisp {
     constructor() {
         // 初期の定義済オブジェクト
         this.defined = {
-            'print': (x) => {
-                console.log(x);
-                return x;
+            // 純LISP関数
+            'atom': (...args) => {
+                // 全ての要素がatomならtrueを返す
+                return args.every((element) => {
+                    if (typeof element === 'number' || typeof element === 'string') {
+                        return true;
+                    }
+                });
             },
-            'first': (x) => {
-                return x[0];
+            'eq': (...args) => {
+                // 全ての要素が同一ならtrueを返す
             },
+            'car': (...args) => {
+                // リストの最初の要素を返す
+                if (Array.isArray(args[0])) {
+                    // TODO: 空配列なら空配列を返す
+                    return args[0][0];
+                }
+                else {
+                    return false;
+                }
+            },
+            'cdr': (...args) => {
+                // リストの最初の要素以降の要素を返す
+            },
+            'cons': (...args) => {
+                // 引数で与えられた要素を元に配列を生成し返す
+            },
+            // nil,Tの変換
+            'nil': () => {
+                return false;
+            },
+            'T': () => {
+                return true;
+            },
+            // 四則演算
             '+': (...args) => {
                 let sum = 0;
                 args.forEach((num) => {
@@ -29395,9 +29424,17 @@ class Lisp {
             '/': (...args) => {
                 return args[0] / args[1];
             },
+            // 便利関数
+            'print': (...args) => {
+                // コンソールに引数で与えられた値を表示する
+                args.forEach((element) => {
+                    console.log(element);
+                });
+                return args[0];
+            },
         };
         // 実行時に生じたカスタムオブジェクト
-        this.custom = {};
+        this.customDefined = {};
         // 式に対して特殊な動作をする関数オブジェクト
         this.special = {
             // 関数を定義する関数
@@ -29410,7 +29447,11 @@ class Lisp {
                     return this.interpret(source[2], new LispSpace(lambdaScope, lispSpace));
                 };
             }
+            // if, quote, define
         };
+        // エイリアスを定義
+        this.defined['first'] = this.defined.car;
+        this.defined['rest'] = this.defined.cdr;
     }
     // LISPソースを実行する
     execute(lispSource) {
@@ -29487,6 +29528,9 @@ class Lisp {
                     if (step === 0) {
                         if (tmpString[0] === '(') {
                             parseArray.push(this.parse(tmpString));
+                        }
+                        else if (tmpString === '') {
+                            // tmpが空の場合は空文字をスキップ
                         }
                         else {
                             parseArray.push(this.parseAtom(tmpString));
@@ -29773,4 +29817,4 @@ module.exports = require("stream");
 
 /******/ });
 });
-//# sourceMappingURL=app.node.37bc37874065fa8a0a95.map.js
+//# sourceMappingURL=app.node.e49c3708925cf40791b5.map.js
