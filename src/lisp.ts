@@ -1,4 +1,4 @@
-import { hasOwnProperty } from 'mobx/lib/utils/utils';
+import isEqual from 'lodash.isequal';
 
 type LispAtom = number | string | Array<any> | Function | boolean
 
@@ -21,11 +21,21 @@ export class Lisp {
         },
         'eq': (...args) => {
             // 全ての要素が同一ならtrueを返す
+            return args.every((element) => {
+                if(isEqual(args[0], element)) {
+                    return true;
+                }else {
+                    return false;
+                }
+            });
         },
         'car': (...args) => {
             // リストの最初の要素を返す
-            if(Array.isArray(args[0])) {
-                // TODO: 空配列なら空配列を返す
+            if(Array.isArray(args) && args.length === 0) {
+                // 引数が空配列ならnullを返す
+                return null;
+            }else if(Array.isArray(args[0])) {
+                // 引数に配列が与えられていたら配列の最初の要素を返す
                 return args[0][0];
             }else {
                 return false;
@@ -33,14 +43,31 @@ export class Lisp {
         },
         'cdr': (...args) => {
             // リストの最初の要素以降の要素を返す
+            if(Array.isArray(args) && args.length === 0) {
+                // 引数が空配列ならnullを返す
+                return null;
+            }else if(Array.isArray(args[0])) {
+                // 引数に配列が与えられていたら配列の最初の要素以降を返す
+                const cdrArray = args[0].slice();
+                cdrArray.shift();
+                return cdrArray;
+            }else {
+                return false;
+            }
         },
         'cons': (...args) => {
             // 引数で与えられた要素を元に配列を生成し返す
+            const newArray = [];
+            args.forEach((element) => {
+                newArray.push(element);
+            })
+
+            return newArray;
         },
 
         // nil,Tの変換
         'nil': () => {
-            return false;
+            return null;
         },
         'T': () => {
             return true;
@@ -110,9 +137,14 @@ export class Lisp {
     public execute(lispSource: string) {
         const source = this.parse(lispSource);
 
-        console.log(source);
         if(source) {
-            return this.interpret(source);
+            const result = this.interpret(source);
+            console.dir(result);
+            if(typeof result === 'string' || typeof result === 'number') {
+                return result;
+            }else {
+                return JSON.stringify(result);
+            }
         }else {
             return 'oh parse Error';
         }
