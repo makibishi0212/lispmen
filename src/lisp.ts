@@ -66,12 +66,8 @@ export class Lisp {
         },
 
         // nil,Tの変換
-        'nil': () => {
-            return null;
-        },
-        'T': () => {
-            return true;
-        },
+        'nil': false,
+        'T': true,
 
         // 四則演算
         '+': (...args) => {
@@ -112,19 +108,43 @@ export class Lisp {
 
     // 式に対して特殊な動作をする関数オブジェクト
     private special = {
-        // 関数を定義する関数
-        'lambda': (source: LispElement | Array<any>, lispSpace?: LispSpace) => {
+        // 無名関数を定義する
+        'lambda': (source: LispElement | Array<any>, lispSpace: LispSpace) => {
             return (...args) => {
                 const lambdaScope = source[1].reduce((acc, x, i) => {
                     acc[x.value] = args[i];
                     return acc;
                 }, {});
 
+                console.log(lambdaScope, lispSpace, source[2]);
+
                 return this.interpret(source[2], new LispSpace(lambdaScope, lispSpace));
             }
-        }
+        },
 
-        // if, quote, define
+        // 条件分岐
+        'if': (source: LispElement | Array<any>, lispSpace: LispSpace) => {
+            return this.interpret(source[1], lispSpace) ? this.interpret(source[2], lispSpace) : this.interpret(source[3], lispSpace);
+        },
+
+        // 変数に値を代入する
+        'setq': (source: LispElement | Array<any>, lispSpace: LispSpace) => {
+
+        },
+
+        // 局所変数を定義する
+        /*
+        'let': (source: LispElement | Array<any>, lispSpace: LispSpace) => {
+            var letContext = source[1].reduce((acc, x) => {
+              acc.scope[x[0].value] = this.interpret(x[1], lispSpace);
+              return acc;
+            }, new LispSpace({}, lispSpace));
+      
+            return this.interpret(source[2], letContext);
+        },
+        */
+
+        // quote, define
     }
 
     constructor() {
@@ -155,7 +175,7 @@ export class Lisp {
     public parse(lispSource: string):Array<any> {
         // TODO: 改行の除去
         const parseTarget = 
-        lispSource.replace(/\(/g, ' ( ')
+        lispSource.replace(/\r?\n/g, '').replace(/\(/g, ' ( ')
         .replace(/\)/g, ' ) ')
         .trim()
         .split(/\s+/);
@@ -265,7 +285,7 @@ export class Lisp {
             return this.interpret(source, new LispSpace(this.defined));
         }else if(source instanceof Array) {
             // 配列の場合逐次実行した結果を返す
-            return this.inrerpretList(source);
+            return this.inrerpretList(source, lispSpace);
         }else if(source.hasOwnProperty('type') && source.hasOwnProperty('value')) {
             if(source.type === 'identifier') {
                 // identifierのときは常にvalueはstring
@@ -285,7 +305,7 @@ export class Lisp {
         }else {
             const list = source.map((element) => {
                 // 各要素を解釈して逐次実行する(再帰的に全ての要素を解決するので、このループを抜けた時には全てがLispAtom型になる)
-                return this.interpret(element);
+                return this.interpret(element, lispSpace);
             });
 
             if(list[0] instanceof Function) {

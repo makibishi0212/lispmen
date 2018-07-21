@@ -13,7 +13,7 @@ export interface AppStateProps {
 */
 class AppState implements AppStateProps {
   @observable message = 'message';
-  @observable lispSource = '(+ (+ 1 2 (print (+ 1 2 3 4 5))))';
+  @observable lispSource = '((lambda (a b) (+ a b 5)) 2 3)';
   @observable lispresult = '';
 
   intervalId: any;
